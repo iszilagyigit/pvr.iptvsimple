@@ -170,6 +170,27 @@ int ParseStarRating(const std::string& starRatingString)
   return static_cast<int>(std::round(starRating));
 }
 
+const std::string readFileContentsStartOnly(const std::string& url, int* httpCode)
+{
+  std::string strContent;
+  kodi::vfs::CFile file;
+
+  if (file.OpenFile(url, ADDON_READ_NO_CACHE))
+  {
+    char buffer[1024];
+    if (int bytesRead = file.Read(buffer, 1024))
+      strContent.append(buffer, bytesRead);
+  }
+
+  if (strContent.empty())
+    *httpCode = 500;
+  else
+    *httpCode = 200;
+
+  return strContent;
+}
+
+
 // http://stackoverflow.com/a/17708801
 const std::string UrlEncode(const std::string& value)
 {
@@ -770,7 +791,7 @@ bool PVRIptvData::LoadPlayList(void)
     }
     else if (strLine[0] != '#')
     {
-      XBMC->Log(LOG_DEBUG,
+      XBMC->Log(ADDON_LOG_INFO,
                 "Found URL: '%s' (current channel name: '%s', channel group: '%s')",
                 strLine.c_str(), tmpChannel.strChannelName.c_str(), iChannelGroupName.c_str());
 
@@ -802,7 +823,24 @@ bool PVRIptvData::LoadPlayList(void)
         channel.strStreamURL = strLine;
       }
       
-      XBMC->Log(LOG_NOTICE, "#################### Test logging line: '%s' ################# ", channel.strStreamURL.c_str());
+      
+      std::string linkProt = channel.strStreamURL.substr(0,7);  
+      if (linkProt == "jwpl://") {
+        std::string httpLink = str1.substr(7);
+        int *httpCode;
+        std::string httpContent = readFileContentsStartOnly(httpLink, &httpCode);
+        static const std::regex re1(".*\"file\":\\s+\"(//.*/index.m3u8.*)\".*");
+        std::smatch match;
+        std::string result;
+
+        if (std::regex_search(pageContent, match, re1) && match.size() > 1) {
+          result = match.str(1);
+        } else {
+          result = std::string("");
+        }
+        channel.strStreamURL = "http://" + result;
+        XBMC->Log(ADDON_LOG_INFO, "########### Found URL from JWPL: '%s' ", channel.strStreamURL);
+      }
 
       channel.strGroupName = iChannelGroupName;
       channel.iEncryptionSystem = 0;
