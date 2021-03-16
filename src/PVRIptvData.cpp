@@ -802,6 +802,8 @@ bool PVRIptvData::LoadPlayList(void)
         channel.strStreamURL = strLine;
       }
       
+      XBMC->Log(LOG_NOTICE, "#################### Test logging line: '%s' ################# ", channel.strStreamURL.c_str());
+
       channel.strGroupName = iChannelGroupName;
       channel.iEncryptionSystem = 0;
 
