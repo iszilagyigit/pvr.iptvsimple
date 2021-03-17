@@ -33,7 +33,10 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <kodi/Filesystem.h>
+
+#include <algorithm>
+#include <curl/curl.h>
+
 
 #include "zlib.h"
 #include "rapidxml/rapidxml.hpp"
@@ -172,27 +175,16 @@ int ParseStarRating(const std::string& starRatingString)
 }
 
 
-/*
-const std::string readFileContentsStartOnly(const std::string& url, int* httpCode)
+static int writer_cb(char *data, size_t size, size_t nmemb,
+                  std::string *writerData)
 {
-  std::string strContent;
-  kodi::vfs::CFile file;
-
-  if (file.OpenFile(url, ADDON_READ_NO_CACHE))
-  {
-    char buffer[1024];
-    if (int bytesRead = file.Read(buffer, 1024))
-      strContent.append(buffer, bytesRead);
-  }
-
-  if (strContent.empty())
-    *httpCode = 500;
-  else
-    *httpCode = 200;
-
-  return strContent;
+  if(writerData == NULL)
+    return 0;
+ 
+  writerData->append(data, size*nmemb);
+ 
+  return size * nmemb;
 }
-*/
 
 
 // http://stackoverflow.com/a/17708801
@@ -231,6 +223,7 @@ PVRIptvData::PVRIptvData(void)
   m_iLastStart    = 0;
   m_iLastEnd      = 0;
 
+  m_pageContent  = "default";
   m_channels.clear();
   m_groups.clear();
   m_epg.clear();
@@ -832,19 +825,35 @@ bool PVRIptvData::LoadPlayList(void)
       std::string linkProt = channel.strStreamURL.substr(0,7);  
       if (linkProt == "jwpl://") {
         std::string httpLink = channel.strStreamURL.substr(7);
-        int httpCode;
-        std::string pageContent = "some page text"; // readFileContentsStartOnly(httpLink, &httpCode);
-        static const std::regex re1(".*\"file\":\\s+\"(//.*/index.m3u8.*)\".*");
+        XBMC->Log(LOG_NOTICE, "(JWPL) Found JWPL: '%s' ", httpLink.c_str());
+
+	m_pageContent.clear();        
+        CURL *curl;
+        curl = curl_easy_init();
+        curl_easy_setopt(curl, CURLOPT_URL, httpLink.c_str());
+        // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writer_cb);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &m_pageContent);
+
+	CURLcode res = curl_easy_perform(curl);
+	curl_easy_cleanup(curl);
+        //XBMC->Log(LOG_NOTICE, "########### Found PAGE: '%s' ", m_pageContent.c_str());
+
+        // not ok regex - . doesnt match endline:
+        // static const std::regex re1(".*\"file\":\\s+\"(//.*/index.m3u8.*)\".*");
+
+        static const std::regex re1("[\\S\\s]*\"file\":\\s+\"(.*)\"[\\S\\s]*", std::regex_constants::ECMAScript);
         std::smatch match;
         std::string result;
 
-        if (std::regex_search(pageContent, match, re1) && match.size() > 1) {
+        if (std::regex_search(m_pageContent, match, re1) && match.size() > 1) {
           result = match.str(1);
+	  result.erase(std::remove(result.begin(),result.end(),'\\'), result.end());
         } else {
           result = std::string("");
         }
-        channel.strStreamURL = "http://" + result;
-        // XBMC->Log(ADDON_LOG_INFO, "########### Found URL from JWPL: '%s' ", channel.strStreamURL);
+        channel.strStreamURL = "http:" + result;
+        XBMC->Log(LOG_NOTICE, "(JWPL) Found URL from JWPL: '%s' ", channel.strStreamURL.c_str());
       }
 
       channel.strGroupName = iChannelGroupName;
