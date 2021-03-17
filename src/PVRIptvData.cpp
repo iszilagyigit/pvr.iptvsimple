@@ -33,6 +33,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <kodi/Filesystem.h>
 
 #include "zlib.h"
 #include "rapidxml/rapidxml.hpp"
@@ -170,6 +171,8 @@ int ParseStarRating(const std::string& starRatingString)
   return static_cast<int>(std::round(starRating));
 }
 
+
+/*
 const std::string readFileContentsStartOnly(const std::string& url, int* httpCode)
 {
   std::string strContent;
@@ -189,6 +192,7 @@ const std::string readFileContentsStartOnly(const std::string& url, int* httpCod
 
   return strContent;
 }
+*/
 
 
 // http://stackoverflow.com/a/17708801
@@ -791,10 +795,11 @@ bool PVRIptvData::LoadPlayList(void)
     }
     else if (strLine[0] != '#')
     {
+/*
       XBMC->Log(ADDON_LOG_INFO,
                 "Found URL: '%s' (current channel name: '%s', channel group: '%s')",
-                strLine.c_str(), tmpChannel.strChannelName.c_str(), iChannelGroupName.c_str());
-
+		strLine.c_str(), tmpChannel.strChannelName.c_str(), iChannelGroupName.c_str());
+*/
       if (bIsRealTime)
         tmpChannel.properties.insert({PVR_STREAM_PROPERTY_ISREALTIMESTREAM, "true"});
 
@@ -826,9 +831,9 @@ bool PVRIptvData::LoadPlayList(void)
       
       std::string linkProt = channel.strStreamURL.substr(0,7);  
       if (linkProt == "jwpl://") {
-        std::string httpLink = str1.substr(7);
-        int *httpCode;
-        std::string httpContent = readFileContentsStartOnly(httpLink, &httpCode);
+        std::string httpLink = channel.strStreamURL.substr(7);
+        int httpCode;
+        std::string pageContent = "some page text"; // readFileContentsStartOnly(httpLink, &httpCode);
         static const std::regex re1(".*\"file\":\\s+\"(//.*/index.m3u8.*)\".*");
         std::smatch match;
         std::string result;
@@ -839,7 +844,7 @@ bool PVRIptvData::LoadPlayList(void)
           result = std::string("");
         }
         channel.strStreamURL = "http://" + result;
-        XBMC->Log(ADDON_LOG_INFO, "########### Found URL from JWPL: '%s' ", channel.strStreamURL);
+        // XBMC->Log(ADDON_LOG_INFO, "########### Found URL from JWPL: '%s' ", channel.strStreamURL);
       }
 
       channel.strGroupName = iChannelGroupName;
