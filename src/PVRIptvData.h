@@ -154,5 +154,6 @@ private:
   std::vector<PVRIptvEpgChannel>    m_epg;
   std::vector<PVRIptvEpgGenre>      m_genres;
   P8PLATFORM::CMutex                m_mutex;
+  // html page content for  finding links from jwplayer html-pages
   std::string			    m_pageContent;
 };
