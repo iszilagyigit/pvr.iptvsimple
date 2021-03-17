@@ -174,7 +174,7 @@ int ParseStarRating(const std::string& starRatingString)
   return static_cast<int>(std::round(starRating));
 }
 
-
+// callback function for curl, for reading html page
 static int writer_cb(char *data, size_t size, size_t nmemb,
                   std::string *writerData)
 {
